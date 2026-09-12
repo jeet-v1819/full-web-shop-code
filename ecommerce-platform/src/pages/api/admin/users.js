@@ -1,99 +1,99 @@
-import prisma from "../../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 
-export default async function handler(req, res) {
-  try {
-    const { search, role, status, page = 1, limit = 10 } = req.query;
+// Get all users with pagination and filtering
+export async function getAllUsers(filters = {}) {
+  const { search, role, status, page = 1, limit = 10 } = filters;
 
-    const where = {};
+  const where = {};
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { email: { contains: search } },
-      ];
-    }
-
-    if (role) {
-      where.role = role;
-    }
-
-    if (status !== undefined) {
-      where.status = status === "active" || status === "true";
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    if (req.method === "GET") {
-      if (req.query.id) {
-        const user = await prisma.user.findUnique({
-          where: { id: req.query.id },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            status: true,
-            createdAt: true,
-          },
-        });
-
-        if (!user) {
-          return res.status(404).json({ error: "User not found" });
-        }
-
-        return res.status(200).json(user);
-      }
-
-      const [users, total] = await Promise.all([
-        prisma.user.findMany({
-          where,
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            status: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: Number(limit),
-        }),
-        prisma.user.count({ where }),
-      ]);
-
-      return res.status(200).json({
-        users,
-        total,
-        page: Number(page),
-        totalPages: Math.ceil(total / limit),
-      });
-    }
-
-    if (req.method === "PUT") {
-      const { id, role: newRole, status: newStatus } = req.body;
-      const updateData = {};
-      if (newRole) updateData.role = newRole;
-      if (newStatus !== undefined) updateData.status = newStatus;
-
-      const user = await prisma.user.update({
-        where: { id },
-        data: updateData,
-      });
-
-      return res.status(200).json(user);
-    }
-
-    if (req.method === "DELETE") {
-      const { id } = req.query || req.body;
-      await prisma.user.delete({ where: { id } });
-      return res.status(200).json({ message: "User deleted" });
-    }
-
-    res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
-  } catch (error) {
-    console.error("Admin users error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+  // Filter by search
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+    ];
   }
+
+  // Filter by role
+  if (role) {
+    where.role = role;
+  }
+
+  // Filter by status
+  if (status) {
+    where.status = status === "active";
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: Number(limit),
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return {
+    users,
+    total,
+    page: Number(page),
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+// Get a single user by ID
+export async function getUserById(userId) {
+  return await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+}
+
+// Change user role
+export async function changeUserRole(userId, newRole) {
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { role: newRole },
+  });
+}
+
+// Toggle user status (enable/disable)
+export async function toggleUserStatus(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { status: !user.status },
+  });
+}
+
+// Delete a user
+export async function deleteUser(userId) {
+  return await prisma.user.delete({
+    where: { id: userId },
+  });
 }
