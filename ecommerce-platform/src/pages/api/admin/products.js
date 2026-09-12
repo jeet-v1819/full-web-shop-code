@@ -1,125 +1,162 @@
-import prisma from "../../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 
-export default async function handler(req, res) {
-  try {
-    const { search, category, brand, status, page = 1, limit = 12 } = req.query;
+// Get all products with pagination and filtering
+export async function getAllProducts(filters = {}) {
+  const { search, category, brand, status, page = 1, limit = 12 } = filters;
 
-    const where = {};
+  const where = {};
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { sku: { contains: search } },
-      ];
-    }
-
-    if (category) {
-      where.categoryId = category;
-    }
-
-    if (brand) {
-      where.brandId = brand;
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    if (req.method === "GET") {
-      const [products, total] = await Promise.all([
-        prisma.product.findMany({
-          where,
-          include: {
-            category: true,
-            brand: true,
-            seller: {
-              select: { id: true, name: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: Number(limit),
-        }),
-        prisma.product.count({ where }),
-      ]);
-
-      return res.status(200).json({
-        products,
-        total,
-        page: Number(page),
-        totalPages: Math.ceil(total / limit),
-      });
-    }
-
-    if (req.method === "POST") {
-      const productData = req.body;
-      let discountPrice = productData.price;
-      if (productData.discount && Number(productData.discount) > 0) {
-        discountPrice = Number(productData.price) * (1 - Number(productData.discount) / 100);
-      }
-
-      const product = await prisma.product.create({
-        data: {
-          name: productData.name,
-          slug: (productData.name || "product").toLowerCase().replace(/\s+/g, "-"),
-          description: productData.description,
-          price: Number(productData.price),
-          discount: productData.discount ? Number(productData.discount) : 0,
-          discountPrice: Number(discountPrice.toFixed(2)),
-          sku: productData.sku,
-          stock: Number(productData.stock || 0),
-          sellerId: productData.sellerId,
-          categoryId: productData.categoryId,
-          brandId: productData.brandId,
-          images: productData.images ? JSON.stringify(productData.images) : "[]",
-        },
-      });
-
-      return res.status(201).json(product);
-    }
-
-    if (req.method === "PUT") {
-      const { id, ...productData } = req.body;
-      let discountPrice = productData.price;
-      if (productData.discount && Number(productData.discount) > 0) {
-        discountPrice = Number(productData.price) * (1 - Number(productData.discount) / 100);
-      }
-
-      const updateData = {
-        name: productData.name,
-        description: productData.description,
-        price: Number(productData.price),
-        discount: productData.discount ? Number(productData.discount) : 0,
-        discountPrice: Number(discountPrice.toFixed(2)),
-        sku: productData.sku,
-        stock: Number(productData.stock || 0),
-      };
-
-      if (productData.categoryId) updateData.categoryId = productData.categoryId;
-      if (productData.brandId) updateData.brandId = productData.brandId;
-      if (productData.images !== undefined) updateData.images = JSON.stringify(productData.images);
-      if (productData.status) updateData.status = productData.status;
-
-      const product = await prisma.product.update({
-        where: { id },
-        data: updateData,
-      });
-
-      return res.status(200).json(product);
-    }
-
-    if (req.method === "DELETE") {
-      const { id } = req.query || req.body;
-      await prisma.product.delete({ where: { id } });
-      return res.status(200).json({ message: "Product deleted" });
-    }
-
-    res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
-  } catch (error) {
-    console.error("Admin products error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+  // Filter by search
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { sku: { contains: search, mode: "insensitive" } },
+    ];
   }
+
+  // Filter by category
+  if (category) {
+    where.categoryId = category;
+  }
+
+  // Filter by brand
+  if (brand) {
+    where.brandId = brand;
+  }
+
+  // Filter by status
+  if (status) {
+    where.status = status;
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        brand: true,
+        seller: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: Number(limit),
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return {
+    products,
+    total,
+    page: Number(page),
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+// Get a single product by ID
+export async function getProductById(productId) {
+  return await prisma.product.findUnique({
+    where: { id: productId },
+    include: {
+      category: true,
+      brand: true,
+      seller: true,
+      reviews: {
+        include: {
+          user: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+      _count: {
+        select: { reviews: true, cartItems: true, wishlistItems: true },
+      },
+    },
+  });
+}
+
+// Create a new product (admin)
+export async function createAdminProduct(productData) {
+  const { name, description, price, discount, sku, categoryId, brandId, stock, sellerId, images } = productData;
+
+  // Calculate discount price
+  let discountPrice = price;
+  if (discount && Number(discount) > 0) {
+    discountPrice = Number(price) * (1 - Number(discount) / 100);
+  }
+
+  const product = await prisma.product.create({
+    data: {
+      name,
+      slug: name.toLowerCase().replace(/\s+/g, "-") || "product",
+      description,
+      price: Number(price),
+      discount: discount ? Number(discount) : 0,
+      discountPrice: Number(discountPrice.toFixed(2)),
+      sku,
+      stock: Number(stock || 0),
+      category: { connect: { id: categoryId } },
+      brand: { connect: { id: brandId } },
+      ...(sellerId && { seller: { connect: { id: sellerId } } }),
+      images: images || [],
+    },
+  });
+
+  return product;
+}
+
+// Update a product (admin)
+export async function updateAdminProduct(productId, productData) {
+  const { name, description, price, discount, sku, categoryId, brandId, stock, sellerId, images } = productData;
+
+  // Calculate discount price
+  let discountPrice = price;
+  if (discount && Number(discount) > 0) {
+    discountPrice = Number(price) * (1 - Number(discount) / 100);
+  }
+
+  const updateData = {
+    name,
+    description,
+    price: Number(price),
+    discount: discount ? Number(discount) : 0,
+    discountPrice: Number(discountPrice.toFixed(2)),
+    sku,
+    stock: Number(stock || 0),
+    ...(categoryId && { category: { connect: { id: categoryId } } }),
+    ...(brandId && { brand: { connect: { id: brandId } } }),
+    ...(sellerId && { seller: { connect: { id: sellerId } } }),
+    ...(images !== undefined && { images }),
+  };
+
+  return await prisma.product.update({
+    where: { id: productId },
+    data: updateData,
+  });
+}
+
+// Delete a product (admin)
+export async function deleteAdminProduct(productId) {
+  return await prisma.product.delete({
+    where: { id: productId },
+  });
+}
+
+// Update product stock (admin)
+export async function updateProductStock(productId, newStock) {
+  return await prisma.product.update({
+    where: { id: productId },
+    data: { stock: Number(newStock) },
+  });
+}
+
+// Toggle product status (enable/disable)
+export async function toggleProductStatus(productId, status) {
+  return await prisma.product.update({
+    where: { id: productId },
+    data: { status },
+  });
 }

@@ -1,5 +1,4 @@
 import prisma from "../lib/prisma.js";
-import { addToCart } from "./cartService.js";
 
 // Get wishlist for a user
 export async function getWishlist(userId) {

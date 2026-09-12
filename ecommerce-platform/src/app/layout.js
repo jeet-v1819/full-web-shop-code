@@ -1,6 +1,4 @@
-import "./globals.css";
-
-export const metadata = {
+const metadata = {
   title: "E-commerce Platform",
   description: "Multi-vendor E-commerce platform",
 };
@@ -12,3 +10,5 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
+export { metadata };
