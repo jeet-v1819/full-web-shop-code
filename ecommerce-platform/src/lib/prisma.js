@@ -1,30 +1,16 @@
-// Use prisma binding or direct generation approach
-// Fallback for webpack compatibility
+/**
+ * PrismaClient wrapper for the application.
+ * Uses better-sqlite3 under the hood with a Prisma-compatible API.
+ */
+import { PrismaClient as PrismaClientImpl } from "./db.js";
 
-// Try to use prisma through require with full path
-const path = require("path");
-const fs = require("fs");
+const globalForPrisma = globalThis;
 
-// Read the generated client directly
-const generatedPath = path.resolve("./src/generated/prisma/client.ts");
+const prisma = globalForPrisma.__prisma ?? new PrismaClientImpl();
 
-// Check if we can use a simpler approach
-// For now, export a basic prisma object with minimal functionality
-// that can be expanded later
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.__prisma = prisma;
+}
 
-// Mock prisma object for development if client can't be loaded
-let prisma = {
-  $query: async (query, ...args) => {
-    console.log("Prisma query would execute:", query.substring(0, 100));
-    return [];
-  },
-  $execute: async (query, ...args) => {
-    console.log("Prisma execute would run:", query.substring(0, 100));
-    return;
-  },
-  $disconnect: async () => {
-    console.log("Prisma disconnecting");
-  },
-};
-
-module.exports = prisma;
+export default prisma;
+export { PrismaClientImpl as PrismaClient };

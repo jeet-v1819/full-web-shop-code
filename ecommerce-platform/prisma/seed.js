@@ -1,4 +1,5 @@
-const { PrismaClient } = require("/home/user/ecommerce-platform/src/generated/prisma/client");
+const path = require("path");
+const { PrismaClient } = require(path.resolve(__dirname, "../src/lib/db.js"));
 const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
@@ -72,7 +73,6 @@ async function main() {
 
   // Create Products for Seller 1
   const sellerProducts = await Promise.all([
-    // Electronics
     prisma.product.create({
       data: {
         name: "iPhone 15 Pro",
@@ -82,11 +82,10 @@ async function main() {
         discount: 0,
         sku: "IPHONE15PRO-001",
         stock: 50,
-        category: categories[0].id, // Electronics
-        brand: brands[0].id, // Apple
-        seller: sellerUser,
+        categoryId: categories[0].id,
+        brandId: brands[0].id,
         sellerId: sellerUser.id,
-        images: ["https://example.com/iphone15pro-1.jpg", "https://example.com/iphone15pro-2.jpg"],
+        images: JSON.stringify(["https://example.com/iphone15pro-1.jpg", "https://example.com/iphone15pro-2.jpg"]),
       },
     }),
     prisma.product.create({
@@ -98,14 +97,12 @@ async function main() {
         discount: 0,
         sku: "SGS24-001",
         stock: 75,
-        category: categories[0].id, // Electronics
-        brand: brands[1].id, // Samsung
-        seller: sellerUser,
+        categoryId: categories[0].id,
+        brandId: brands[1].id,
         sellerId: sellerUser.id,
-        images: ["https://example.com/galaxy-s24-1.jpg", "https://example.com/galaxy-s24-2.jpg"],
+        images: JSON.stringify(["https://example.com/galaxy-s24-1.jpg", "https://example.com/galaxy-s24-2.jpg"]),
       },
     }),
-    // Clothing
     prisma.product.create({
       data: {
         name: "Nike Running Shoes",
@@ -115,13 +112,12 @@ async function main() {
         discount: 0,
         sku: "NRS-001",
         stock: 100,
-        category: categories[1].id, // Clothing
-        brand: brands[2].id, // Nike
-        seller: sellerUser,
+        categoryId: categories[1].id,
+        brandId: brands[2].id,
         sellerId: sellerUser.id,
-        size: ["S", "M", "L", "XL"],
-        color: ["Black", "Red", "Blue"],
-        images: ["https://example.com/nike-shoes-1.jpg", "https://example.com/nike-shoes-2.jpg"],
+        size: JSON.stringify(["S", "M", "L", "XL"]),
+        color: JSON.stringify(["Black", "Red", "Blue"]),
+        images: JSON.stringify(["https://example.com/nike-shoes-1.jpg", "https://example.com/nike-shoes-2.jpg"]),
       },
     }),
     prisma.product.create({
@@ -133,16 +129,14 @@ async function main() {
         discount: 0,
         sku: "ATS-001",
         stock: 200,
-        category: categories[1].id, // Clothing
-        brand: brands[3].id, // Adidas
-        seller: sellerUser,
+        categoryId: categories[1].id,
+        brandId: brands[3].id,
         sellerId: sellerUser.id,
-        size: ["S", "M", "L", "XL"],
-        color: ["White", "Black", "Grey"],
-        images: ["https://example.com/adidas-tshirt-1.jpg", "https://example.com/adidas-tshirt-2.jpg"],
+        size: JSON.stringify(["S", "M", "L", "XL"]),
+        color: JSON.stringify(["White", "Black", "Grey"]),
+        images: JSON.stringify(["https://example.com/adidas-tshirt-1.jpg", "https://example.com/adidas-tshirt-2.jpg"]),
       },
     }),
-    // Books
     prisma.product.create({
       data: {
         name: "The Great Gatsby",
@@ -152,11 +146,10 @@ async function main() {
         discount: 0,
         sku: "TGG-001",
         stock: 300,
-        category: categories[2].id, // Books
-        brand: brands[5].id, // HarperCollins
-        seller: sellerUser2,
+        categoryId: categories[2].id,
+        brandId: brands[5].id,
         sellerId: sellerUser2.id,
-        images: ["https://example.com/great-gatsby-1.jpg", "https://example.com/great-gatsby-2.jpg"],
+        images: JSON.stringify(["https://example.com/great-gatsby-1.jpg", "https://example.com/great-gatsby-2.jpg"]),
       },
     }),
     prisma.product.create({
@@ -168,14 +161,12 @@ async function main() {
         discount: 0,
         sku: "AH-001",
         stock: 250,
-        category: categories[2].id, // Books
-        brand: brands[5].id, // HarperCollins
-        seller: sellerUser2,
+        categoryId: categories[2].id,
+        brandId: brands[5].id,
         sellerId: sellerUser2.id,
-        images: ["https://example.com/atomic-habits-1.jpg", "https://example.com/atomic-habits-2.jpg"],
+        images: JSON.stringify(["https://example.com/atomic-habits-1.jpg", "https://example.com/atomic-habits-2.jpg"]),
       },
     }),
-    // Home & Garden
     prisma.product.create({
       data: {
         name: "Smart Garden Kit",
@@ -185,11 +176,10 @@ async function main() {
         discount: 0,
         sku: "SGK-001",
         stock: 25,
-        category: categories[3].id, // Home & Garden
-        brand: brands[0].id, // Apple
-        seller: sellerUser,
+        categoryId: categories[3].id,
+        brandId: brands[0].id,
         sellerId: sellerUser.id,
-        images: ["https://example.com/smart-garden-1.jpg", "https://example.com/smart-garden-2.jpg"],
+        images: JSON.stringify(["https://example.com/smart-garden-1.jpg", "https://example.com/smart-garden-2.jpg"]),
       },
     }),
   ]);
@@ -200,9 +190,7 @@ async function main() {
     data: {
       rating: 5,
       comment: "A timeless classic! Beautiful prose and story.",
-      user: customerUser,
       userId: customerUser.id,
-      product: sellerProducts.find(p => p.slug === "the-great-gatsby"),
       productId: sellerProducts.find(p => p.slug === "the-great-gatsby").id,
     },
   });
@@ -211,7 +199,6 @@ async function main() {
   // Create cart for customer
   await prisma.cart.create({
     data: {
-      user: customerUser,
       userId: customerUser.id,
     },
   });
@@ -220,7 +207,6 @@ async function main() {
   // Create wishlist for customer
   await prisma.wishlist.create({
     data: {
-      user: customerUser,
       userId: customerUser.id,
     },
   });
