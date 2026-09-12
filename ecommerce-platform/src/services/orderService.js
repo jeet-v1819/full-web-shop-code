@@ -30,7 +30,7 @@ export async function createOrder(userId, sellerId, items, shippingAddress) {
     subtotal += total;
 
     orderItems.push({
-      product: { connect: { id: product.id } },
+      productId: product.id,
       quantity: cartItem.quantity,
       price: Number(price.toFixed(2)),
       total: Number(total.toFixed(2)),
@@ -65,7 +65,7 @@ export async function createOrder(userId, sellerId, items, shippingAddress) {
       shippingAddress,
       items: {
         create: orderItems.map((item, index) => ({
-          product: { connect: { id: item.productId } },
+          productId: item.productId,
           quantity: item.quantity,
           price: item.price,
           total: item.total,
@@ -82,10 +82,12 @@ export async function createOrder(userId, sellerId, items, shippingAddress) {
     });
   }
 
-  // Clear the cart
-  await prisma.cart.delete({
-    where: { userId },
-  });
+  // Clear the cart items then the cart
+  const existingCart = await prisma.cart.findFirst({ where: { userId } });
+  if (existingCart) {
+    await prisma.cartItem.deleteMany({ where: { cartId: existingCart.id } });
+    await prisma.cart.delete({ where: { id: existingCart.id } });
+  }
 
   return order;
 }
